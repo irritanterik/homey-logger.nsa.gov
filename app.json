@@ -1,0 +1,23 @@
+{
+  "id":"gov.nsa.logger",
+  "version":"0.0.0",
+  "compatibility":">=1.1.2",
+  "name":{
+    "en":"Homey Logger",
+    "nl":"Homey Logger"
+  },
+  "description":{
+    "en":"Listen and shows Homey events",
+    "nl":"Beluisterd en toont Homey events"
+  },
+  "author":{
+    "name":"Erik van Dongen",
+    "website":"http://github.com/irritanterik/"
+  },
+  "images":{
+    "large":"./assets/images/large.jpg",
+    "small":"./assets/images/small.jpg"
+  },
+  "category":"tools",
+  "permissions":[]
+}

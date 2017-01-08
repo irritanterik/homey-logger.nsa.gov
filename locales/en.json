@@ -1,0 +1,22 @@
+{
+  "settings": {
+    "title": "Homey Logger",
+    "logging": {
+      "title": "Realtime logging",
+      "table": {
+        "time": "Date and time",
+        "event": "Type",
+        "data": "Data"
+      }
+    },
+    "configuration": {
+      "title": "Configuration",
+      "intro": "Do some settings here.",
+      "messages": {
+        "busySaving": "Saving settings to Homey...",
+        "errorSaving": "Oops... Something went wrong saving your settings",
+        "successSaving": "Settings saved successfully"
+      }
+    }
+  }
+}

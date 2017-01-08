@@ -1,0 +1,8 @@
+{
+  "name":"Homey-logger.nsa.gov",
+  "author":"Erik van Dongen",
+  "license": "ISC",
+  "dependencies":{
+     "http.min":"^1.2.4"
+  }
+}

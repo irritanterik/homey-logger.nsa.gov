@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+  <head>
+    <script type="text/javascript" src="/manager/webserver/assets/js/jquery.js"></script>
+    <script type="text/javascript" src="js/settings.js"></script>
+    <script type="text/javascript" src="js/settings-logging.js"></script>
+    <script type="text/javascript" src="js/settings-configuration.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <link rel="stylesheet" href="css/settings.css">
+   </style>
+  </head>
+  <body>
+    <h2 data-i18n="settings.title"></h2>
+    <ul class="nav nav-tabs">
+      <li id="panel-button-1" class="panel-button"><a href="javascript:showPanel(1)" data-i18n="settings.logging.title">Log</a></li>
+      <li id="panel-button-2" class="panel-button"><a href="javascript:showPanel(2)" data-i18n="settings.configuration.title">Config</a></li>
+    </ul>
+    <!-- Logging panel -->
+    <div id="panel-1" class="panel">
+      <table id="logs" class="table table-condensed" width=100%>
+        <thead>
+          <tr>
+            <th class="" data-i18n="settings.logging.table.time">Date and time</th>
+            <th class="" data-i18n="settings.logging.table.event">Event</th>
+            <th class="" data-i18n="settings.logging.table.data">Data</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class=logentry>
+            <td class="event small" colspan=3>Starting log...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Configuration panel -->
+    <div id="panel-2" class="panel">
+      <p data-i18n="settings.configuration.intro"></p>
+      <p data-i18n="settings.configuration.instruction"></p>
+      <div class="panel-body small">
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="appsManager" checked>app manager</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="apps" checked>apps</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="deviceManager" checked>device manager</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="devices" checked>devices</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="flow" checked>flow testing</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="geolocation" checked>geolocation</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="insights" checked>insights</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="ledring" checked>ledring</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="notifications" checked>notifications</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="presence" checked>presence</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="speechInput" checked>speech-input</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="speechOutput" checked>speech-output</label>
+        <label class="checkbox-inline"><input type="checkbox" onChange="optionsChanged()" id="zwave" checked>zwave</label>
+      </div>
+
+      <div id="busy" class="busy"><i class="fa fa-cog fa-spin fa-2x fa-fw"></i><span>..</span></div>
+      <div id="error" class="error"><i class="fa fa-times-circle fa-2x fa-fw"></i><span>..</span></div>
+      <div id="success" class="success"><i class="fa fa-check fa-2x fa-fw"></i><span>..</span></div>
+    </div>
+  </body>
+</html>
