@@ -1,6 +1,10 @@
 <!doctype html>
 <html>
   <head>
+    <script>
+    // Pop out handling
+    if (window.parent.location.href === window.location.href) window.location.href = 'popout.html'
+    </script>
     <script type="text/javascript" src="/manager/webserver/assets/js/jquery.js"></script>
     <script type="text/javascript" src="js/settings.js"></script>
     <script type="text/javascript" src="js/settings-logging.js"></script>
@@ -8,13 +12,12 @@
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
     <link rel="stylesheet" href="css/settings.css">
-   </style>
   </head>
   <body>
     <h2 data-i18n="settings.title"></h2>
     <ul class="nav nav-tabs">
       <li id="panel-button-1" class="panel-button"><a href="javascript:showPanel(1)" data-i18n="settings.logging.title">Log</a></li>
-      <li id="panel-button-2" class="panel-button"><a href="javascript:showPanel(2)" data-i18n="settings.configuration.title">Config</a></li>
+      <!-- <li id="panel-button-2" class="panel-button"><a href="javascript:showPanel(2)" data-i18n="settings.configuration.title">Config</a></li> -->
     </ul>
     <!-- Logging panel -->
     <div id="panel-1" class="panel">
@@ -23,7 +26,7 @@
           <tr>
             <th class="" data-i18n="settings.logging.table.time">Date and time</th>
             <th class="" data-i18n="settings.logging.table.event">Event</th>
-            <th class="" data-i18n="settings.logging.table.data">Data</th>
+            <th class="" data-i18n="settings.logging.table.data">Data <a href="index.html" class="button right" target="_top"><i class="fa fa-external-link"></i> Pop out</a></th>
           </tr>
         </thead>
         <tbody>
