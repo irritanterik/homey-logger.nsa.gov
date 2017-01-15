@@ -1,12 +1,107 @@
 /* global $ */
-
-var devices = []
 var apps = []
+var devices = []
+var heard = {}
 var pause = false
 var sockets = {}
 
+function addLogEntry (namespace, event, data, optionalStyle) {
+  var parsed = logNamespaceEventDataParser(namespace, event, data)
+  if (pause || parsed.ignore) return
+  var html = '<tr class="logentry ' + namespace
+  if (optionalStyle) html += ' ' + optionalStyle
+  html += '"><td class="datetime small text-nowrap">' + formatLogDate(new Date()) + '</td>'
+  html += '<td class="event small">' + parsed.item + '</td>'
+  html += '<td class="event small">' + parsed.event + '</td>'
+  html += '<td class="data small text-muted">' + parsed.data + '</td></tr>'
+  $('table#logs tbody tr:first').before(html)
+  $('#logs').find('tr:gt(1000)').remove()
+
+  var node
+  if ((node = tree.treeview(true).getEnabled().filter(node => node.namespace === namespace)[0])) {
+    $('[data-nodeid=' + node.nodeId + ']').css('background-color', '#f0ad4e')
+    if (node.parentId) $('[data-nodeid=' + node.parentId + ']').css('background-color', '#f0ad4e')
+    setTimeout(function () {
+      $('[data-nodeid=' + node.nodeId + ']').css('background-color', 'white')
+      if (node.parentId) $('[data-nodeid=' + node.parentId + ']').css('background-color', 'white')
+    }, 200)
+  }
+}
+
 function initLogging () {
   playLogging()
+}
+
+function clearLogging () {
+  $('#logs').find('tr:gt(0)').remove()
+}
+
+function formatLogDate (time) {
+  return time.toLocaleDateString() + ' ' + time.toLocaleTimeString() + '.' + ('000' + time.getMilliseconds()).slice(-3)
+}
+
+function getDeviceNameById (searchId) {
+  return devices.filter(x => x.id === searchId)[0].name
+}
+
+function getAppNameById (searchId) {
+  return apps.filter(x => x.id === searchId)[0].name
+}
+
+function handleSocketConnect () { addLogEntry(this.namespace, 'Connected', 'Logger is listening', 'success') }
+function handleSocketDisconnect () { addLogEntry(this.namespace, 'Disconnected', 'Logger is no longer listening', 'warning') }
+function handleSocketError (error) { addLogEntry(this.namespace, 'Not connected', error, 'danger') }
+function handleSocketEvent (packet) {
+  if (!heard[this.namespace]) heard[this.namespace] = {}
+  if (!heard[this.namespace][packet.data[0]]) heard[this.namespace][packet.data[0]] = 0
+  heard[this.namespace][packet.data[0]] ++
+  addLogEntry(this.namespace, packet.data[0], packet.data[1])
+}
+function handleSocketMessage (data) { addLogEntry(this.namespace, 'Message', data, 'danger') }
+
+function logNamespaceEventDataParser (namespace, event, data) {
+  var parsed = {
+    namespace: namespace,
+    type: namespace.split(':')[0].capitalizeFirstLetter(),
+    item: namespace.split(':')[1].capitalizeFirstLetter(),
+    event: event.capitalizeFirstLetter(),
+    data: (!data ? '' : typeof (data) === 'string' ? data : JSON.stringify(data)),
+    ignore: false
+  }
+  if (parsed.item === 'Devices' || parsed.item === 'Apps') parsed.item += ' manager'
+  if (parsed.type === 'Device') parsed.item = getDeviceNameById(namespace.split(':')[1])
+  if (parsed.type === 'App') parsed.item = getAppNameById(namespace.split(':')[1])
+  if (parsed.type === 'App' && parsed.data === 'Invalid namespace') parsed.data = 'This app does not support realtime logging'
+
+  switch (parsed.item + ':' + parsed.event) {
+    case 'Apps manager:Ready':
+      if (data === 'gov.nsa.logger') return window.parent.location.reload()
+      break
+    case 'Devices manager:Available':
+      parsed.data = getDeviceNameById(data.device_id)
+      break
+    case 'Flow:Token-value':
+      if (data.uri.split(':')[1] === 'device') data.device = getDeviceNameById(data.uri.split(':')[2])
+      parsed.data = JSON.stringify(data)
+      break
+    case 'Insights:Log.entry':
+      if (data.uri.split(':')[1] === 'device') data.device = getDeviceNameById(data.uri.split(':')[2])
+      parsed.data = JSON.stringify(data)
+      break
+  }
+  return parsed
+}
+
+function pauseLogging () {
+  $('#pauseLogging').attr('disabled', 'disabled')
+  $('#playLogging').removeAttr('disabled')
+  pause = true
+}
+
+function playLogging () {
+  $('#playLogging').attr('disabled', 'disabled')
+  $('#pauseLogging').removeAttr('disabled')
+  pause = false
 }
 
 function popoutLogging () {
@@ -23,37 +118,6 @@ function popoutLogging () {
       }
     }]
   })
-}
-
-function pauseLogging () {
-  $('#pauseLogging').attr('disabled', 'disabled')
-  $('#playLogging').removeAttr('disabled')
-  pause = true
-}
-
-function playLogging () {
-  $('#playLogging').attr('disabled', 'disabled')
-  $('#pauseLogging').removeAttr('disabled')
-  pause = false
-}
-
-function clearLogging () {
-  $('#logs').find('tr:gt(1)').remove()
-}
-
-function getDeviceNameById (searchId) {
-  return devices.filter(x => x.id === searchId)[0].name
-}
-
-function getAppNameById (searchId) {
-  return apps.filter(x => x.id === searchId)[0].name
-}
-
-function splitOptionsFromNamespace (namespace, callback) {
-  var option
-  if (namespace.split(':')[2]) option = namespace.split(':')[2]
-  namespace = namespace.split(':').splice(0, 2).join(':')
-  callback(namespace, option)
 }
 
 function socketConnect (namespace) {
@@ -87,48 +151,11 @@ function socketDisconnect (namespace) {
   })
 }
 
-var heard = {}
-function handleSocketConnect () { addLogEntry(this.namespace, 'Connected', 'Logger is listening', 'success') }
-function handleSocketDisconnect () { addLogEntry(this.namespace, 'Disconnected', 'Logger is no longer listening', 'warning') }
-function handleSocketError (error) { addLogEntry(this.namespace, 'Not connected', error, 'danger') }
-function handleSocketEvent (packet) {
-  if (!heard[this.namespace]) heard[this.namespace] = {}
-  if (!heard[this.namespace][packet.data[0]]) heard[this.namespace][packet.data[0]] = 0
-  heard[this.namespace][packet.data[0]] ++
-  addLogEntry(this.namespace, packet.data[0], packet.data[1])
-}
-function handleSocketMessage (data) { addLogEntry(this.namespace, 'Message', data, 'danger') }
-
-function formatLogDate (time) {
-  return time.toLocaleDateString() + ' ' + time.toLocaleTimeString() + '.' + ('000' + time.getMilliseconds()).slice(-3)
-}
-
-function addLogEntry (namespace, event, data, optionalStyle) {
-  if (namespace.split(':')[1].capitalizeFirstLetter() === 'Apps' && event.capitalizeFirstLetter() === 'Ready' && data === 'gov.nsa.logger') return window.parent.location.reload()
-  if (pause) return
-  if (!data) data = ''
-  var component = 'Other'
-  if (namespace.split(':')[0] === 'manager') component = namespace.split(':')[1].capitalizeFirstLetter() + ' Manager'
-  if (namespace.split(':')[0] === 'device') component = 'Device ' + getDeviceNameById(namespace.split(':')[1])
-  if (namespace.split(':')[0] === 'app') component = 'App ' + getAppNameById(namespace.split(':')[1])
-  var html = '<tr class="logentry ' + namespace
-  if (optionalStyle) html += ' ' + optionalStyle
-  html += '"><td class="datetime small text-nowrap">' + formatLogDate(new Date()) + '</td>'
-  html += '<td class="event small">' + component + '</td>'
-  html += '<td class="event small">' + event.capitalizeFirstLetter() + '</td>'
-  html += '<td class="data small text-muted">' + (!data ? '' : typeof (data) === 'string' ? data : JSON.stringify(data)) + '</td></tr>'
-  $('table#logs tbody tr:first').before(html)
-  $('#logs').find('tr:gt(1000)').remove()
-
-  var node
-  if ((node = tree.treeview(true).getEnabled().filter(node => node.namespace === namespace)[0])) {
-    $('[data-nodeid=' + node.nodeId + ']').css('background-color', '#f0ad4e')
-    if (node.parentId) $('[data-nodeid=' + node.parentId + ']').css('background-color', '#f0ad4e')
-    setTimeout(function () {
-      $('[data-nodeid=' + node.nodeId + ']').css('background-color', 'white')
-      if (node.parentId) $('[data-nodeid=' + node.parentId + ']').css('background-color', 'white')
-    }, 200)
-  }
+function splitOptionsFromNamespace (namespace, callback) {
+  var option
+  if (namespace.split(':')[2]) option = namespace.split(':')[2]
+  namespace = namespace.split(':').splice(0, 2).join(':')
+  callback(namespace, option)
 }
 
 String.prototype.capitalizeFirstLetter = function () {
