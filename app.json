@@ -1,6 +1,6 @@
 {
   "id":"gov.nsa.logger",
-  "version":"0.0.0",
+  "version":"0.1.0",
   "compatibility":">=1.1.2",
   "name":{
     "en":"Homey Logger",

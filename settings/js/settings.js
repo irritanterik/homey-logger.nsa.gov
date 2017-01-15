@@ -8,8 +8,9 @@ function showPanel (panel) {
 }
 
 function onHomeyReady () {
+  showPanel(1)
   initLogging()
   initConfiguration()
-  showPanel(1)
   Homey.ready()
+  // Homey.alert(navigator.userAgent)
 }

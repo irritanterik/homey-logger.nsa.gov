@@ -4,6 +4,16 @@ h2 {
   margin-bottom: 10px !important;
 }
 
+.panel-button {
+  margin-top: 0px !important;
+}
+
+/* Tree view padding */
+.list-group-item {
+  padding: 4px 10px !important;
+  font-size: 12px;
+}
+
 /* Input form fields */
 .code {
   font-family: monospace;
@@ -33,23 +43,6 @@ select {
 body {
   position: relative;
 }
-.busy, .info, .success, .warning, .error {
-  position: absolute;
-  top: 1;
-  width: 100%;
-  z-index: 10;
-  margin: 0px;
-  padding: 0px;
-}
-.busy     {color: #00529B;background-color: #BDE5F8;}
-.info     {color: #00529B;background-color: #BDE5F8;}
-.success  {color: #4F8A10;background-color: #DFF2BF;}
-.warning  {color: #9F6000;background-color: #FEEFB3;}
-.error    {color: #D8000C;background-color: #FFBABA;}
-.busy i, .info i, .success i, .warning i, .error i {
-  margin:5px 7px;
-  vertical-align:middle;
-}
 
 /* Debug log table */
 table#logs tr th.datetime,
@@ -62,6 +55,7 @@ table#logs tr td.datetime {
   white-space: nowrap;
 }
 table#logs tr th.entry,
+table#logs tr th.data,
 table#logs tr td.entry {
   border-top: 1px solid #ddd;
   vertical-align: top;
@@ -69,4 +63,19 @@ table#logs tr td.entry {
   font-size:12px;
   white-space: normal;
   word-break: break-all;
+}
+
+table#logs tr td.data {
+  font-family: monospace;
+  border-top: 1px solid #ddd;
+  vertical-align: top;
+  padding: 3px;
+  font-size:12px;
+  white-space: normal;
+  word-break: break-all;
+}
+
+/* logging popout dialog */
+.popout-dialog .modal-dialog {
+  width: 440px;
 }

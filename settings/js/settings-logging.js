@@ -1,122 +1,134 @@
-/* global Homey, $, __ */
+/* global $ */
 
 var devices = []
 var apps = []
+var pause = false
+var sockets = {}
 
 function initLogging () {
-  listenToAll()
+  playLogging()
 }
 
-function listenToAll () {
-  listenOn('manager:apps', 'appsManager')
-  listenOn('manager:flow', 'flow')
-  listenOn('manager:geolocation', 'geolocation')
-  listenOn('manager:insights', 'insights')
-  listenOn('manager:ledring', 'ledring')
-  listenOn('manager:speech-output', 'speechOutput')
-  listenOn('manager:speech-input', 'speechInput')
-  listenOn('manager:zwave', 'zwave')
-  listenOn('manager:notifications', 'notifications')
-  listenOn('manager:presence', 'presence')
-  listenOn('manager:devices', 'devices')
-  listenApps()
-  listenDevices()
-  // listenManagerDevices()
+function popoutLogging () {
+  var url = window.location.origin + '/app/gov.nsa.logger/settings/popout.html'
+  BootstrapDialog.show({
+    title: 'Pop out',
+    message: `Homey does not allow pop-outs. Please copy this url and open it in a new browser tab manualy: <a href="${url}" target="_blank">${url}</a>`,
+    cssClass: 'popout-dialog',
+    buttons: [{
+      label: 'Close',
+      cssClass: 'btn-primary',
+      action: function (dialog) {
+        dialog.close()
+      }
+    }]
+  })
+}
+
+function pauseLogging () {
+  $('#pauseLogging').attr('disabled', 'disabled')
+  $('#playLogging').removeAttr('disabled')
+  pause = true
+}
+
+function playLogging () {
+  $('#playLogging').attr('disabled', 'disabled')
+  $('#pauseLogging').removeAttr('disabled')
+  pause = false
+}
+
+function clearLogging () {
+  $('#logs').find('tr:gt(1)').remove()
 }
 
 function getDeviceNameById (searchId) {
-  var result = null
-  devices.forEach(function (device, index) {
-    if (device.id === searchId) {
-      result = device.name
+  return devices.filter(x => x.id === searchId)[0].name
+}
+
+function getAppNameById (searchId) {
+  return apps.filter(x => x.id === searchId)[0].name
+}
+
+function splitOptionsFromNamespace (namespace, callback) {
+  var option
+  if (namespace.split(':')[2]) option = namespace.split(':')[2]
+  namespace = namespace.split(':').splice(0, 2).join(':')
+  callback(namespace, option)
+}
+
+function socketConnect (namespace) {
+  splitOptionsFromNamespace(namespace, (namespace, option) => {
+    if (sockets[namespace]) {
+      if (option && sockets[namespace].options.indexOf(option) === -1) sockets[namespace].push(option)
+      if (sockets[namespace].disconnected) sockets[namespace].connect()
+    } else {
+      var socket = window.parent.Homey.realtime(namespace)
+      socket.namespace = namespace
+      socket.options = option ? [option] : []
+      socket.on('connect', handleSocketConnect)
+      socket.on('disconnect', handleSocketDisconnect)
+      socket.on('error', handleSocketError)
+      socket.on('message', handleSocketMessage)
+      socket.onevent = handleSocketEvent
+      sockets[namespace] = socket
     }
   })
-  return result
 }
 
-function listenManagerDevices () {
-  var socket = window.parent.Homey.realtime('manager:devices')
-  socket.on('disconnect', function () {
-    console.log('Got disconnect!')
-  })
-  socket.onevent = function (packet) { // Override incoming socket events
-    console.log('***', 'realtime/manager/devices/', packet.data[0], packet.data[1].device_id, packet.data[1].message, packet)
-    addLogEntry(getDeviceNameById(packet.data[1].device_id), packet.data[0], 'deviceManager', 'danger')
-  }
-}
-
-var devicesockets = []
-function listenDevices () {
-  // get all devices and handels all events on /realtime/device/device_id/
-  $.getJSON(window.location.origin + '/api/manager/devices/device/', function (data) {
-    addLogEntry('Start device listener', 'Will listen to realtime events of ' + Object.keys(data.result).length + ' devices', 'devices')
-    $.each(data.result, function (index, resultDevice) {
-      var device = {
-        id: resultDevice.id,
-        name: resultDevice.name
+function socketDisconnect (namespace) {
+  splitOptionsFromNamespace(namespace, (namespace, option) => {
+    if (sockets[namespace]) {
+      if (option && sockets[namespace].options.indexOf(option) !== -1) {
+        sockets[namespace].options.splice(sockets[namespace].options.indexOf(option), 1)
+        if (sockets[namespace].options.length === 0) return
       }
-      devices.push(device)
-      var deviceSocket = window.parent.io.connect(window.location.origin + '/realtime/device/' + device.id + '/')
-      var _onevent = deviceSocket.onevent
-      deviceSocket.onevent = function (packet) { // Override incoming socket events
-        console.log(packet)
-        var args = packet.data || []
-        addLogEntry(device.name, args, 'devices')
-        _onevent.call(deviceSocket, packet)
-      }
-      devicesockets.push(deviceSocket)
-    })
+      if (sockets[namespace].connected) sockets[namespace].disconnect()
+    }
   })
 }
 
-function listenApps () {
-  // get all apps and handels all events on /realtime/app/app_id/
-  $.getJSON(window.location.origin + '/api/manager/apps/app', function (data) {
-    addLogEntry('Start app listener', 'Will listen to realtime events of ' + Object.keys(data.result).length + ' apps', 'apps')
-    $.each(data.result, function (index, resultApp) {
-      var app = {
-        id: resultApp.id,
-        name: resultApp.name.en
-      }
-      apps.push(app)
-      var appSocket = window.parent.io.connect(window.location.origin + '/realtime/app/' + app.id + '/')
-      var _onevent = appSocket.onevent
-      appSocket.onevent = function (packet) { // Override incoming socket events
-        var args = packet.data || []
-        console.log('*** realtime/app', 'onevent', args, packet, app)
-        addLogEntry(app.name, args, 'apps')
-        _onevent.call(appSocket, packet)
-      }
-    })
-  })
+var heard = {}
+function handleSocketConnect () { addLogEntry(this.namespace, 'Connected', 'Logger is listening', 'success') }
+function handleSocketDisconnect () { addLogEntry(this.namespace, 'Disconnected', 'Logger is no longer listening', 'warning') }
+function handleSocketError (error) { addLogEntry(this.namespace, 'Not connected', error, 'danger') }
+function handleSocketEvent (packet) {
+  if (!heard[this.namespace]) heard[this.namespace] = {}
+  if (!heard[this.namespace][packet.data[0]]) heard[this.namespace][packet.data[0]] = 0
+  heard[this.namespace][packet.data[0]] ++
+  addLogEntry(this.namespace, packet.data[0], packet.data[1])
+}
+function handleSocketMessage (data) { addLogEntry(this.namespace, 'Message', data, 'danger') }
+
+function formatLogDate (time) {
+  return time.toLocaleDateString() + ' ' + time.toLocaleTimeString() + '.' + ('000' + time.getMilliseconds()).slice(-3)
 }
 
-function listenOn (namespace, category) {
-  var socket = window.parent.Homey.realtime(namespace)
-  socket.onevent = function (packet) { // Override incoming socket events to catch everything
-    console.log(namespace, packet.data[0], packet.data[1])
-    addLogEntry(category + ': ' + packet.data[0], packet.data[1], category)
-    // if (category === 'appsManager' && packet.data[0] === 'ready') {
-      // addLogEntry('Start app listener for app', packet.data[1], 'apps')
-    // }
-  }
-}
-
-function addLogEntry (event, data, category, optionalStyle) {
+function addLogEntry (namespace, event, data, optionalStyle) {
+  if (namespace.split(':')[1].capitalizeFirstLetter() === 'Apps' && event.capitalizeFirstLetter() === 'Ready' && data === 'gov.nsa.logger') return window.parent.location.reload()
+  if (pause) return
   if (!data) data = ''
-  var html = '<tr class="logentry ' + category
+  var component = 'Other'
+  if (namespace.split(':')[0] === 'manager') component = namespace.split(':')[1].capitalizeFirstLetter() + ' Manager'
+  if (namespace.split(':')[0] === 'device') component = 'Device ' + getDeviceNameById(namespace.split(':')[1])
+  if (namespace.split(':')[0] === 'app') component = 'App ' + getAppNameById(namespace.split(':')[1])
+  var html = '<tr class="logentry ' + namespace
   if (optionalStyle) html += ' ' + optionalStyle
-  html += '"><td class="datetime small text-nowrap">' + new Date().toISOString() + '</td>'
+  html += '"><td class="datetime small text-nowrap">' + formatLogDate(new Date()) + '</td>'
+  html += '<td class="event small">' + component + '</td>'
   html += '<td class="event small">' + event.capitalizeFirstLetter() + '</td>'
-  html += '<td class="data small text-muted">' + (!data ? '' : JSON.stringify(data)) + '</td></tr>'
+  html += '<td class="data small text-muted">' + (!data ? '' : typeof (data) === 'string' ? data : JSON.stringify(data)) + '</td></tr>'
   $('table#logs tbody tr:first').before(html)
   $('#logs').find('tr:gt(1000)').remove()
 
-  // if (setting[category]) {
-  //   $('.' + category).show()
-  // } else {
-  //   $('.' + category).hide()
-  // }
+  var node
+  if ((node = tree.treeview(true).getEnabled().filter(node => node.namespace === namespace)[0])) {
+    $('[data-nodeid=' + node.nodeId + ']').css('background-color', '#f0ad4e')
+    if (node.parentId) $('[data-nodeid=' + node.parentId + ']').css('background-color', '#f0ad4e')
+    setTimeout(function () {
+      $('[data-nodeid=' + node.nodeId + ']').css('background-color', 'white')
+      if (node.parentId) $('[data-nodeid=' + node.parentId + ']').css('background-color', 'white')
+    }, 200)
+  }
 }
 
 String.prototype.capitalizeFirstLetter = function () {
