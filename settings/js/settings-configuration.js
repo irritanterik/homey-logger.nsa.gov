@@ -57,8 +57,8 @@ function initConfiguration () {
 function loadSettings () {
   Homey.get('settings', function (error, settings) {
     if (error) return console.error(error)
-    if (settings === null) return null // TODO start default
-    if (!settings.loggingpage) return null // TODO start default
+    if (settings === null) return tree.treeview('checkAll', { silent: false })
+    if (!settings.loggingpage) return tree.treeview('checkAll', { silent: false })
     settings.loggingpage.tree.forEach(namespace => {
       var node
       if ((node = tree.treeview(true).getEnabled().filter(node => node.namespace === namespace)[0])) {
