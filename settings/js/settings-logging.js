@@ -33,7 +33,7 @@ function initLogging () {
 }
 
 function clearLogging () {
-  $('#logs').find('tr:gt(0)').remove()
+  $('#logs').find('tr:gt(1)').remove()
 }
 
 function formatLogDate (time) {
