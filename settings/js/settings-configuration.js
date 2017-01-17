@@ -1,47 +1,9 @@
 /* global sockets, Homey, $, __ */
 
 var tree
+var darkSockets = []
 
 function initConfiguration () {
-  function adjustNodeBasedOnChildren (node) {
-    var parent = tree.treeview('getNode', node)
-
-    if (parent !== tree) {
-      var checked = parent.nodes.filter(child => child.state.checked).length
-      if ((parent.nodes.length === checked) !== parent.state.checked) {
-        tree.treeview(parent.state.checked ? 'uncheckNode' : 'checkNode', [parent.nodeId, { silent: true }])
-      }
-    }
-  }
-
-  function onNodeCheckToggle (node, checked) {
-    var toggleSockets = null
-    if (node.namespace) toggleSockets = [node.namespace]
-    if (node.text === 'Devices') {
-      toggleSockets = Object.keys(sockets).filter(namespace => namespace.split(':')[0] === 'device')
-    }
-    if (node.text === 'Apps') {
-      toggleSockets = Object.keys(sockets).filter(namespace => namespace.split(':')[0] === 'app')
-    }
-    if (toggleSockets) toggleSockets.forEach(namespace => { checked ? socketConnect(namespace) : socketDisconnect(namespace) })
-    if (node.nodes) node.nodes.forEach(child => { tree.treeview(checked ? 'checkNode' : 'uncheckNode', child.nodeId) })
-    if (node.parentId) adjustNodeBasedOnChildren(node.parentId)
-    saveConfigurationDelayer()
-  }
-
-  buildSettingsTree(structure => {
-    tree = $('#treeview-checkable').treeview({
-      data: structure,
-      showIcon: false,
-      showCheckbox: true,
-      highlightSelected: false,
-      levels: 1,
-      onNodeChecked: function (event, node) { onNodeCheckToggle(node, true) },
-      onNodeUnchecked: function (event, node) { onNodeCheckToggle(node, false) }
-    })
-    loadSettings()
-  })
-
   // Check/uncheck all
   $('#input-check-node').on('keyup', function (e) {
     tree.treeview('search', [ $('#input-check-node').val(), { ignoreCase: true, exactMatch: false } ])
@@ -51,6 +13,76 @@ function initConfiguration () {
   })
   $('#btn-uncheck-all').on('click', function (e) {
     tree.treeview('uncheckAll', { silent: false })
+  })
+  $('#checkbox-new-apps').on('click', function (e) {
+    saveConfiguration()
+  })
+  $('#checkbox-new-devices').on('click', function (e) {
+    saveConfiguration()
+  })
+  buildSettingsTree()
+}
+
+function adjustNodeBasedOnChildren (node) {
+  var parent = tree.treeview('getNode', node)
+  if (parent !== tree) {
+    var checked = parent.nodes.filter(child => child.state.checked).length
+    if ((parent.nodes.length === checked) !== parent.state.checked) {
+      tree.treeview(parent.state.checked ? 'uncheckNode' : 'checkNode', [parent.nodeId, { silent: true }])
+    }
+    if (parent.parentId) adjustNodeBasedOnChildren(parent.parentId)
+  }
+}
+
+function onNodeCheckToggle (node, checked) {
+  if (node.namespace) checked ? socketConnect(node.namespace) : socketDisconnect(node.namespace)
+  if (node.nodes) node.nodes.forEach(child => { tree.treeview(checked ? 'checkNode' : 'uncheckNode', [child.nodeId, { silent: false }]) })
+  if (node.parentId) adjustNodeBasedOnChildren(node.parentId)
+  saveConfigurationDelayer()
+}
+
+function buildSettingsTree () {
+  buildSettingsTreeStructure(structure => {
+    var firstTime = !tree
+    var existingNodes = firstTime ? [] : tree.treeview(true).getUnselected().map(node => ({hash: node.namespace || node.type + ':' + node.text, parentId: node.parentId, state: node.state, tags: node.tags}))
+    tree = $('#treeview-checkable').treeview({
+      data: structure,
+      highlightSelected: false,
+      levels: 1,
+      showCheckbox: true,
+      showIcon: false,
+      showTags: true,
+      onNodeChecked: function (event, node) { onNodeCheckToggle(node, true) },
+      onNodeUnchecked: function (event, node) { onNodeCheckToggle(node, false) }
+    })
+    if (firstTime) {
+      loadSettings()
+    } else {
+      var listenNew = {
+        app: $('#checkbox-new-apps').prop('checked'),
+        device: $('#checkbox-new-devices').prop('checked')
+      }
+      var newNodes = tree.treeview(true).getUnselected()
+      // loop all nodes in new structure
+      newNodes.forEach(node => {
+        var nodeHash = node.namespace || node.type + ':' + node.text
+        var existing = existingNodes.filter(i => i.hash === nodeHash)[0]
+        if (existing) {
+          if (existing.state.checked) tree.treeview('checkNode', [node.nodeId, { silent: (existing.tags.length <= node.tags.length) }])
+          if (existing.state.expanded) tree.treeview('expandNode', [node.nodeId, { silent: true }])
+        } else {
+          if (listenNew[node.namespace.split(':')[0]]) tree.treeview('checkNode', [node.nodeId, { silent: false }])
+          if (node.parentId) adjustNodeBasedOnChildren(node.parentId)
+        }
+      })
+      // Find removed nodes and update parent
+      existingNodes.forEach(oldNode => {
+        if (oldNode.parentId &&
+          newNodes.filter(i => (i.namespace || i.type + ':' + i.text) === oldNode.hash).length === 0) {
+          adjustNodeBasedOnChildren(oldNode.parentId)
+        }
+      })
+    }
   })
 }
 
@@ -65,6 +97,8 @@ function loadSettings () {
         tree.treeview('checkNode', node.nodeId)
       }
     })
+    $('#checkbox-new-apps').prop('checked', (settings.loggingpage.newApps !== undefined) ? settings.loggingpage.newApps : true)
+    $('#checkbox-new-devices').prop('checked', (settings.loggingpage.newDevices !== undefined) ? settings.loggingpage.newDevices : true)
   })
 }
 
@@ -79,8 +113,8 @@ function saveConfiguration () {
   var settings = {
     loggingpage: {
       tree: tree.treeview('getChecked').filter(x => (!x.type && x.namespace)).map(x => x.namespace),
-      allDevices: tree.treeview('getChecked').filter(x => (x.type === 'group' && x.text === 'Devices')).length > 0,
-      allApps: tree.treeview('getChecked').filter(x => (x.type === 'group' && x.text === 'Apps')).length > 0
+      newApps: $('#checkbox-new-apps').prop('checked'),
+      newDevices: $('#checkbox-new-devices').prop('checked')
     }
   }
   Homey.set('settings', settings, function (error, settings) {
@@ -90,14 +124,16 @@ function saveConfiguration () {
 }
 
 function buildAppTree (ready) {
-  var structureApps = {text: 'Apps', type: 'group', nodes: []}
+  var structureApps = {text: 'Apps', type: 'group', nodes: [], tags: []}
   window.parent.api('GET', '/manager/apps/app', (error, result) => {
     if (error) return ready(error)
+    apps = {}
     Object.keys(result).forEach(app => {
-      apps.push({id: app, name: result[app].name.en, enabled: result[app].enabled})
+      apps[app] = {id: app, name: result[app].name.en, enabled: result[app].enabled}
       structureApps.nodes.push({
         text: result[app].name.en,
-        namespace: 'app:' + app
+        namespace: 'app:' + app,
+        tags: (result[app].enabled) ? [] : ['disabled']
       })
     })
     structureApps.nodes = structureApps.nodes.sort((a, b) => (a.text > b.text ? 1 : -1))
@@ -118,14 +154,16 @@ function formatDeviceLabel (device) {
 }
 
 function buildDeviceTree (ready) {
-  var structureDevices = {text: 'Devices', type: 'group', nodes: []}
+  var structureDevices = {text: 'Devices', type: 'group', nodes: [], tags: []}
   window.parent.api('GET', '/manager/devices/device', (error, result) => {
     if (error) return ready(error)
+    devices = {}
     Object.keys(result).forEach(device => {
-      devices.push({id: device, name: result[device].name, enabled: result[device].enabled})
+      devices[device] = {id: device, name: result[device].name, online: result[device].online}
       structureDevices.nodes.push({
         text: formatDeviceLabel(result[device]),
-        namespace: 'device:' + device
+        namespace: 'device:' + device,
+        tags: (result[device].online ? [] : ['offline'])
       })
     })
     structureDevices.nodes = structureDevices.nodes.sort((a, b) => (a.text > b.text ? 1 : -1))
@@ -133,8 +171,9 @@ function buildDeviceTree (ready) {
   })
 }
 
-function buildSettingsTree (ready) {
-  var structure = managersTree
+function buildSettingsTreeStructure (ready) {
+  var structure = []
+  managersTree.forEach(i => { i.tags = []; structure.push(i) })
   buildAppTree(function (error, appTree) {
     if (error) return console.log('Something went wrong building the app tree')
     structure.push(appTree)

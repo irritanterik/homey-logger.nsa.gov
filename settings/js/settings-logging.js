@@ -1,9 +1,10 @@
 /* global $ */
-var apps = []
-var devices = []
+var apps = {}
+var devices = {}
 var heard = {}
 var pause = false
 var sockets = {}
+const allwaysOnNamespaces = ['manager:apps', 'manager:devices', 'app:gov.nsa.logger']
 
 function addLogEntry (namespace, event, data, optionalStyle) {
   var parsed = logNamespaceEventDataParser(namespace, event, data)
@@ -18,7 +19,7 @@ function addLogEntry (namespace, event, data, optionalStyle) {
   $('#logs').find('tr:gt(1000)').remove()
 
   var node
-  if ((node = tree.treeview(true).getEnabled().filter(node => node.namespace === namespace)[0])) {
+  if ((node = tree.treeview(true).getUnselected().filter(node => node.namespace === namespace)[0])) {
     $('[data-nodeid=' + node.nodeId + ']').css('background-color', '#f0ad4e')
     if (node.parentId) $('[data-nodeid=' + node.parentId + ']').css('background-color', '#f0ad4e')
     setTimeout(function () {
@@ -30,6 +31,16 @@ function addLogEntry (namespace, event, data, optionalStyle) {
 
 function initLogging () {
   playLogging()
+  allwaysOnNamespaces.forEach(namespace => socketConnect(namespace, true))
+}
+
+function checkNamespaceAdded (namespace) {
+  setTimeout(buildSettingsTree, 5000)
+}
+
+function checkNamespaceRemoved (namespace) {
+  socketDisconnect(namespace)
+  buildSettingsTree()
 }
 
 function clearLogging () {
@@ -41,11 +52,11 @@ function formatLogDate (time) {
 }
 
 function getDeviceNameById (searchId) {
-  return devices.filter(x => x.id === searchId)[0].name
+  return devices[searchId] ? devices[searchId].name : searchId
 }
 
 function getAppNameById (searchId) {
-  return apps.filter(x => x.id === searchId)[0].name
+  return apps[searchId] ? apps[searchId].name : searchId
 }
 
 function handleSocketConnect () { addLogEntry(this.namespace, 'Connected', 'Logger is listening', 'success') }
@@ -66,7 +77,7 @@ function logNamespaceEventDataParser (namespace, event, data) {
     item: namespace.split(':')[1].capitalizeFirstLetter(),
     event: event.capitalizeFirstLetter(),
     data: (!data ? '' : typeof (data) === 'string' ? data : JSON.stringify(data)),
-    ignore: false
+    ignore: sockets[namespace].ignore
   }
   if (parsed.item === 'Devices' || parsed.item === 'Apps') parsed.item += ' manager'
   if (parsed.type === 'Device') parsed.item = getDeviceNameById(namespace.split(':')[1])
@@ -76,6 +87,13 @@ function logNamespaceEventDataParser (namespace, event, data) {
   switch (parsed.item + ':' + parsed.event) {
     case 'Apps manager:Ready':
       if (data === 'gov.nsa.logger') return window.parent.location.reload()
+      checkNamespaceAdded('app:' + data)
+      break
+    case 'Apps manager:Disable':
+      checkNamespaceRemoved('app:' + data)
+      break
+    case 'Apps manager:Uninstall':
+      checkNamespaceRemoved('app:' + data)
       break
     case 'Devices manager:Available':
       parsed.data = getDeviceNameById(data.device_id)
@@ -120,7 +138,7 @@ function popoutLogging () {
   })
 }
 
-function socketConnect (namespace) {
+function socketConnect (namespace, ignore) {
   splitOptionsFromNamespace(namespace, (namespace, option) => {
     if (sockets[namespace]) {
       if (option && sockets[namespace].options.indexOf(option) === -1) sockets[namespace].push(option)
@@ -136,6 +154,7 @@ function socketConnect (namespace) {
       socket.onevent = handleSocketEvent
       sockets[namespace] = socket
     }
+    sockets[namespace].ignore = !!ignore
   })
 }
 
@@ -146,7 +165,11 @@ function socketDisconnect (namespace) {
         sockets[namespace].options.splice(sockets[namespace].options.indexOf(option), 1)
         if (sockets[namespace].options.length === 0) return
       }
-      if (sockets[namespace].connected) sockets[namespace].disconnect()
+      if (allwaysOnNamespaces.indexOf(namespace) === -1 && sockets[namespace].connected) {
+        sockets[namespace].disconnect()
+      } else {
+        sockets[namespace].ignore = true
+      }
     }
   })
 }
