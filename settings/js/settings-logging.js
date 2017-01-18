@@ -79,10 +79,11 @@ function logNamespaceEventDataParser (namespace, event, data) {
     data: (!data ? '' : typeof (data) === 'string' ? data : JSON.stringify(data)),
     ignore: sockets[namespace].ignore
   }
-  if (parsed.item === 'Devices' || parsed.item === 'Apps') parsed.item += ' manager'
-  if (parsed.type === 'Device') parsed.item = getDeviceNameById(namespace.split(':')[1])
   if (parsed.type === 'App') parsed.item = getAppNameById(namespace.split(':')[1])
   if (parsed.type === 'App' && parsed.data === 'Invalid namespace') parsed.data = 'This app does not support realtime logging'
+  if (parsed.type === 'Device') parsed.item = getDeviceNameById(namespace.split(':')[1])
+  if (parsed.item === 'Devices' || parsed.item === 'Apps') parsed.item += ' manager'
+  if (parsed.item === 'Devices manager') parsed.data = getDeviceNameById(data.device_id)
 
   switch (parsed.item + ':' + parsed.event) {
     case 'Apps manager:Ready':
@@ -95,8 +96,17 @@ function logNamespaceEventDataParser (namespace, event, data) {
     case 'Apps manager:Uninstall':
       checkNamespaceRemoved('app:' + data)
       break
-    case 'Devices manager:Available':
-      parsed.data = getDeviceNameById(data.device_id)
+    case 'Devices manager:Add':
+      checkNamespaceAdded('device:' + data)
+      break
+    case 'Devices manager:Delete':
+      checkNamespaceRemoved('device:' + data)
+      break
+    case 'Devices manager:Offline':
+      checkNamespaceRemoved('device:' + data)
+      break
+    case 'Devices manager:Online':
+      checkNamespaceAdded('device:' + data)
       break
     case 'Flow:Token-value':
       if (data.uri.split(':')[1] === 'device') data.device = getDeviceNameById(data.uri.split(':')[2])
