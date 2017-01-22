@@ -19,6 +19,33 @@ h2 {
   font-weight: 300;
 }
 
+.token {
+  display: inline-block
+}
+
+/* Slider alignment */
+.slider {
+  margin-left: 30px;
+}
+
+#slider-system-interval {
+	width: 210px;
+}
+
+#slider-insights-interval {
+	width: 280px;
+}
+
+#slider-insights-interval .slider-rangeHighlight {
+	background: #f2dede;
+}
+
+#slider-insights-interval .slider-track {
+	background: #dff0d8;
+}
+
+
+
 /* Input form fields */
 .code {
   font-family: monospace;

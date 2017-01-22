@@ -1,6 +1,7 @@
 /* global $ */
 var apps = {}
 var devices = {}
+var insights = {}
 var heard = {}
 var pause = false
 var sockets = {}
@@ -111,6 +112,9 @@ function logNamespaceEventDataParser (namespace, event, data) {
     case 'Flow:Token-value':
       if (data.uri.split(':')[1] === 'device') data.device = getDeviceNameById(data.uri.split(':')[2])
       parsed.data = JSON.stringify(data)
+      break
+    case 'Homey Logger:Performance':
+      updatePerformance(data)
       break
     case 'Insights:Log.entry':
       if (data.uri.split(':')[1] === 'device') data.device = getDeviceNameById(data.uri.split(':')[2])

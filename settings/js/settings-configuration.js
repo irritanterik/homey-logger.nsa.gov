@@ -3,23 +3,33 @@
 var tree
 var darkSockets = []
 
+function filterTree () {
+  $('#treeview-noresults').hide()
+  var searchWord = $('#input-check-node').val()
+  if (searchWord) {
+    var results = tree.treeview('search', [ searchWord, { ignoreCase: true, exactMatch: false } ])
+    $('.treeview > ul > li').hide()
+    results.forEach(node => $(`.treeview > ul > [data-nodeid=${node.nodeId}]`).show())
+    if (results.length === 0) $('#treeview-noresults').show()
+  } else {
+    $('.treeview > ul > li').show()
+  }
+}
+
 function initConfiguration () {
   // Check/uncheck all
-  $('#input-check-node').on('keyup', function (e) {
-    tree.treeview('search', [ $('#input-check-node').val(), { ignoreCase: true, exactMatch: false } ])
-  })
+  $('#treeview-noresults').hide()
+  $('#input-check-node').on('keyup', filterTree)
   $('#btn-check-all').on('click', function (e) {
     tree.treeview('checkAll', { silent: false })
+    filterTree()
   })
   $('#btn-uncheck-all').on('click', function (e) {
     tree.treeview('uncheckAll', { silent: false })
+    filterTree()
   })
-  $('#checkbox-new-apps').on('click', function (e) {
-    saveConfiguration()
-  })
-  $('#checkbox-new-devices').on('click', function (e) {
-    saveConfiguration()
-  })
+  $('#checkbox-new-apps').on('click', saveConfiguration)
+  $('#checkbox-new-devices').on('click', saveConfiguration)
   buildSettingsTree()
 }
 
@@ -38,6 +48,7 @@ function onNodeCheckToggle (node, checked) {
   if (node.namespace) checked ? socketConnect(node.namespace) : socketDisconnect(node.namespace)
   if (node.nodes) node.nodes.forEach(child => { tree.treeview(checked ? 'checkNode' : 'uncheckNode', [child.nodeId, { silent: false }]) })
   if (node.parentId) adjustNodeBasedOnChildren(node.parentId)
+  setTimeout(filterTree, 50)
   saveConfigurationDelayer()
 }
 
@@ -47,6 +58,7 @@ function buildSettingsTree () {
     var existingNodes = firstTime ? [] : tree.treeview(true).getUnselected().map(node => ({hash: node.namespace || node.type + ':' + node.text, parentId: node.parentId, state: node.state, tags: node.tags}))
     tree = $('#treeview-checkable').treeview({
       data: structure,
+      highlightSearchResults: false,
       highlightSelected: false,
       levels: 1,
       showCheckbox: true,
@@ -82,6 +94,7 @@ function buildSettingsTree () {
           adjustNodeBasedOnChildren(oldNode.parentId)
         }
       })
+      filterTree()
     }
   })
 }
@@ -166,23 +179,64 @@ function buildDeviceTree (ready) {
         tags: (result[device].online ? [] : ['offline'])
       })
     })
-    structureDevices.nodes = structureDevices.nodes.sort((a, b) => (a.text > b.text ? 1 : -1))
     return ready(null, structureDevices)
+  })
+}
+
+function formatInsightsLabel (log) {
+  try {
+    var label = (log.uriObj.type === 'device') ? devices[log.uriObj.id].name : log.uriObj.name
+    return label + ' - ' + log.label.en
+  } catch (e) {
+    return log.label.en
+  }
+}
+
+function buildInsightsTree (ready) {
+  var structureInsights = {text: 'Insights', type: 'group', nodes: [], tags: []}
+  structureInsights.nodes.push({text: 'Apps', type: 'group', uriObjType: 'app', nodes: [], tags: []})
+  structureInsights.nodes.push({text: 'Devices', type: 'group', uriObjType: 'device', nodes: [], tags: []})
+  structureInsights.nodes.push({text: 'Homey', type: 'group', uriObjType: 'manager', nodes: [], tags: []})
+  window.parent.api('GET', '/manager/insights/log', (error, result) => {
+    if (error) return ready(error)
+    insights = {}
+    Object.keys(result).forEach(log => {
+      var namespace = result[log].uri + ':' + result[log].name
+      insights[namespace] = {id: namespace, name: formatInsightsLabel(result[log]), enabled: result[log].enabled}
+      structureInsights.nodes.filter(n => n.uriObjType === result[log].uriObj.type)[0].nodes.push({
+        text: formatInsightsLabel(result[log]),
+        // namespace: namespace,
+        tags: (result[log].enabled ? [] : ['disabled'])
+      })
+    })
+    return ready(null, structureInsights)
   })
 }
 
 function buildSettingsTreeStructure (ready) {
   var structure = []
   managersTree.forEach(i => { i.tags = []; structure.push(i) })
-  buildAppTree(function (error, appTree) {
+  buildAppTree((error, appTree) => {
     if (error) return console.log('Something went wrong building the app tree')
     structure.push(appTree)
-    buildDeviceTree(function (error, deviceTree) {
+    buildDeviceTree((error, deviceTree) => {
       if (error) return console.log('Something went wrong building the device tree')
       structure.push(deviceTree)
-      ready(structure.sort((a, b) => (a.text > b.text ? 1 : -1)))
+      ready(sortTreeStructure(structure))
+      // buildInsightsTree((error, insightsTree) => {
+      //   if (error) return console.log('Something went wrong building the insights tree')
+      //   structure.push(insightsTree)
+      // })
     })
   })
+}
+
+function sortTreeStructure (structure) {
+  structure = structure.sort((a, b) => (a.text > b.text ? 1 : -1))
+  Object.keys(structure).forEach(key => {
+    if (structure[key].nodes) structure[key].nodes = sortTreeStructure(structure[key].nodes)
+  })
+  return structure
 }
 
 const managersTree = [{
@@ -214,16 +268,19 @@ const managersTree = [{
   type: 'group',
   nodes: [{
     text: 'Input',
-    namespace: 'manager:speech-input'
+    namespace: 'manager:speech-input',
+    tags: []
   }, {
     text: 'Output',
-    namespace: 'manager:speech-output'
+    namespace: 'manager:speech-output',
+    tags: []
   }]
 }, {
   text: 'Wireless',
   type: 'group',
   nodes: [{
     text: 'Z-wave',
-    namespace: 'manager:zwave'
+    namespace: 'manager:zwave',
+    tags: []
   }]
 }]

@@ -5,12 +5,18 @@ function showPanel (panel) {
   $('.panel-button').removeClass('active')
   $('#panel-button-' + panel).addClass('active')
   $('#panel-' + panel).show()
+
+  if (panel === 3) {
+    initPerformance()
+    // slider label issue https://github.com/seiyria/bootstrap-slider/issues/673
+  }
 }
 
 function onHomeyReady () {
-  showPanel(1)
   initLogging()
   initConfiguration()
+  // initPerformance()
+  showPanel(1)
   Homey.ready()
   // Homey.alert(navigator.userAgent)
 }

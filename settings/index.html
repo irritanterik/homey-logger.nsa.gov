@@ -9,17 +9,22 @@
     <script type="text/javascript" src="js/settings.js"></script>
     <script type="text/javascript" src="js/settings-logging.js"></script>
     <script type="text/javascript" src="js/settings-configuration.js"></script>
+    <script type="text/javascript" src="js/settings-performance.js"></script>
     <script type="text/javascript" src="js/libs/bootstrap-treeview.js"></script>
     <script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.9/js/bootstrap-dialog.min.js"></script>
-    <link type="text/css" rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/9.7.0/bootstrap-slider.min.js"></script>
+    <link type="text/css" rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous"/>
     <link type="text/css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap3-dialog/1.34.9/css/bootstrap-dialog.min.css"/>
-    <link type="text/css" rel="stylesheet" href="css/settings.css">
+    <link type="text/css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-slider/9.7.0/css/bootstrap-slider.min.css"/>
+    <link type="text/css" rel="stylesheet" href="css/settings.css"/>
+    <link type="text/css" rel="stylesheet" href="/manager/flow/css/flow.token.css"/>
   </head>
   <body>
     <ul class="nav nav-tabs">
-      <li id="panel-button-1" class="h5 panel-button"><a href="javascript:showPanel(1)" data-i18n="settings.logging.title">Log</a></li>
-      <li id="panel-button-2" class="h5 panel-button"><a href="javascript:showPanel(2)" data-i18n="settings.configuration.title">Config</a></li>
+      <li id="panel-button-1" class="h5 panel-button"><a href="javascript:showPanel(1)">Realtime logging</a></li>
+      <li id="panel-button-2" class="h5 panel-button"><a href="javascript:showPanel(2)">Configuration</a></li>
+      <li id="panel-button-3" class="h5 panel-button"><a href="javascript:showPanel(3)">Performance</a></li>
     </ul>
     <!-- Logging panel -->
     <div id="panel-1" class="panel">
@@ -28,6 +33,7 @@
       <button id="playLogging" onClick="playLogging()" title="Unpause logging"><i class="fa fa-play"></i></button>&nbsp;
       <button id="clearLogging" onClick="clearLogging()" title="Clear"><i class="fa fa-trash"></i></button>&nbsp;
       <button id="popOut" onClick="popoutLogging()" title="Popout window"><i class="fa fa-external-link"></i></button>&nbsp;
+      <span class=small>Keep this page open. Realtime logging will stop when you leave this page.</span>
       <table id="logs" class="table table-condensed" width=100%>
         <thead>
           <tr>
@@ -51,17 +57,19 @@
         <div class="col-sm-6">
           Enable / disable listening
           <div id="treeview-checkable" class=""></div>
+          <div id="treeview-noresults" class="danger"><p>No results found...</p></div>
         </div>
         <div class="col-sm-6">
-          Details
-          <p>
-            <button type="button" class="btn btn-success" id="btn-check-all">Select all</button>&nbsp;&nbsp;&nbsp;
-            <button type="button" class="btn btn-danger" id="btn-uncheck-all">Deselect all</button>
-          </p>
+          <strong>Search<strong>
           <div class="form-group">
             <label for="input-check-node" class="sr-only">Search:</label>
             <input type="input" class="form-control" id="input-check-node" placeholder="Search..." value="">
           </div>
+          <p>
+            <button type="button" class="btn btn-success" id="btn-check-all">Select all</button>&nbsp;&nbsp;&nbsp;
+            <button type="button" class="btn btn-danger" id="btn-uncheck-all">Deselect all</button>
+          </p>
+          <h5>Options</h5>
           <div class="checkbox">
             <label>
               <input type="checkbox" class="checkbox" id="checkbox-new-apps">
@@ -76,15 +84,96 @@
           </div>
         </div>
       </fieldset>
-<!--
-      <h5>Settings for backend logging</h5>
-      <fieldset>
-        Backend logging will be added later. This feature enables you to trigger flows based on logging and send your log to a database or cloud.
-      </fieldset>
-      <div id="busy" class="busy"><i class="fa fa-cog fa-spin fa-2x fa-fw"></i><span>..</span></div>
-      <div id="error" class="error"><i class="fa fa-times-circle fa-2x fa-fw"></i><span>..</span></div>
-      <div id="success" class="success"><i class="fa fa-check fa-2x fa-fw"></i><span>..</span></div>
-    -->
+    </div>
+    <!-- Performance panel -->
+    <div id="panel-3" class="panel">
+      <h5>Homey System Performance</h5>
+      <p>
+      Activate polling to log Homey's performance details.
+      The app needs your API token for polling.
+      Values are available as tokens in the flow editor.
+      Values can also be saved in insights.
+      Use this with some caution, insights logging will consume storage.
+      </p>
+      <div class="col-sm-6">
+        <div class="form-group">
+          <label for="token">API token</label>
+          <input type="input" class="form-control" id="apiToken" value="">
+        </div>
+        <div class="form-group">
+          <label for="slider-system-interval">Cpu usage, free memory and loadavg poll interval:</label>
+          <input id="slider-system-interval" type="text">
+        </div>
+        <div class="form-group">
+          <label for="slider-insights-interval">Insights logging interval (in minutes):</label>
+          <input id="slider-insights-interval" type="text">
+        </div>
+      </div>
+      <div class="col-sm-6">
+        <table class="table table-condensed">
+          <thead>
+            <tr>
+              <th class="col-sm-4">Property</th>
+              <th class="col-sm-2">Token</th>
+              <th class="col-sm-3">Value</th>
+              <th class="col-sm-3">Log Insights</th>
+            </tr>
+          </thead>
+          <tbody class="">
+            <tr>
+              <td>Average load</td>
+              <td><div class="token" data-type="number">
+                <span class="title">loadAvg</span>
+                </div>
+              </td>
+              <td class="text-center"><span id="value-loadavg">...</span></td>
+              <td class="text-center"><input type="checkbox" id="checkbox-insights-loadavg"></td>
+            </tr>
+            <tr>
+              <td>Free memory percentage</td>
+              <td><div class="token" data-type="number">
+                <span class="title">freeMem</span>
+                </div>
+              </td>
+              <td class="text-center"><span id="value-freemem">...</span>%</td>
+              <td class="text-center"><input type="checkbox" id="checkbox-insights-freemem"></td>
+            </tr>
+            <tr>
+              <td>CPU nice usage</td>
+              <td><div class="token" data-type="number">
+                <span class="title">cpuNice</span>
+                </div>
+              </td>
+              <td class="text-center"><span id="value-cpu-nice">...</span></td>
+              <td class="text-center"><input type="checkbox" id="checkbox-insights-cpu-nice"></td>
+            </tr>
+            <tr>
+              <td>CPU system usage</td>
+              <td><div class="token" data-type="number">
+                <span class="title">cpuSys</span>
+                </div>
+              </td>
+              <td class="text-center"><span id="value-cpu-sys">...</span></td>
+              <td class="text-center"><input type="checkbox" id="checkbox-insights-cpu-sys"></td>
+            </tr>
+              <tr>
+                <td>CPU user usage</td>
+                <td><div class="token" data-type="number">
+                  <span class="title">cpuUser</span>
+                  </div>
+                </td>
+                <td class="text-center"><span id="value-cpu-user">...</span></td>
+                <td class="text-center"><input type="checkbox" id="checkbox-insights-cpu-user"></td>
+              </tr>
+              <tr>
+                <td></td>
+                <td class="small">Last update: </td>
+                <td class=small><span id="liveLastUpdate">..never..</span></td>
+              <td></td>
+              </tr>
+            </tbody>
+          </table>
+      </div>
     </div>
   </body>
 </html>
