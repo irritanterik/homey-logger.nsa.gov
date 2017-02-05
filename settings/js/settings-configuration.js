@@ -172,7 +172,7 @@ function buildDeviceTree (ready) {
     if (error) return ready(error)
     devices = {}
     Object.keys(result).forEach(device => {
-      devices[device] = {id: device, name: result[device].name, online: result[device].online}
+      devices[device] = {id: device, name: result[device].name, online: result[device].online, zwNodeId: (result[device].settings) ? result[device].settings.zw_node_id || null : null}
       structureDevices.nodes.push({
         text: formatDeviceLabel(result[device]),
         namespace: 'device:' + device,
@@ -280,7 +280,19 @@ const managersTree = [{
   type: 'group',
   nodes: [{
     text: 'Z-wave',
-    namespace: 'manager:zwave',
-    tags: []
+    type: 'group',
+    nodes: [{
+      text: 'Log',
+      namespace: 'manager:zwave:log',
+      tags: []
+    }, {
+      text: 'State',
+      namespace: 'manager:zwave:state',
+      tags: []
+    }]
   }]
+}, {
+  text: 'Wittiness',
+  namespace: 'manager:wittiness',
+  tags: []
 }]

@@ -63,7 +63,7 @@ table#logs tr td.datetime {
   vertical-align: top;
   padding: 3px;
   font-size: 12px;
-  width: 175px;
+  width: 120px;
   white-space: nowrap;
 }
 table#logs tr th.entry,

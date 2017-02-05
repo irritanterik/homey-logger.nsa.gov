@@ -1,4 +1,4 @@
-/* global $ */
+/* global tree, Homey, $ */
 var apps = {}
 var devices = {}
 var insights = {}
@@ -7,12 +7,13 @@ var pause = false
 var sockets = {}
 const allwaysOnNamespaces = ['manager:apps', 'manager:devices', 'app:gov.nsa.logger']
 
-function addLogEntry (namespace, event, data, optionalStyle) {
-  var parsed = logNamespaceEventDataParser(namespace, event, data)
+function addLogEntry (namespace, event, data, options) {
+  if (!options) options = {}
+  var parsed = logNamespaceEventDataParser(namespace, event, data, options)
   if (pause || parsed.ignore) return
   var html = '<tr class="logentry ' + namespace
-  if (optionalStyle) html += ' ' + optionalStyle
-  html += '"><td class="datetime small text-nowrap">' + formatLogDate(new Date()) + '</td>'
+  if (options.style) html += ' ' + options.style
+  html += '"><td class="event small text-nowrap">' + formatLogDate(parsed.datetime) + '</td>'
   html += '<td class="event small">' + parsed.item + '</td>'
   html += '<td class="event small">' + parsed.event + '</td>'
   html += '<td class="data small text-muted">' + parsed.data + '</td></tr>'
@@ -33,6 +34,10 @@ function addLogEntry (namespace, event, data, optionalStyle) {
 function initLogging () {
   playLogging()
   allwaysOnNamespaces.forEach(namespace => socketConnect(namespace, true))
+  // also handle normal socket for cloud support
+  Homey.on('debug', function (data) { addLogEntry('app:gov.nsa.logger', 'debug', data) })
+  Homey.on('error', function (data) { addLogEntry('app:gov.nsa.logger', 'error', data) })
+  Homey.on('performance', function (data) { addLogEntry('app:gov.nsa.logger', 'performance', data) })
 }
 
 function checkNamespaceAdded (namespace) {
@@ -56,30 +61,45 @@ function getDeviceNameById (searchId) {
   return devices[searchId] ? devices[searchId].name : searchId
 }
 
+function getDeviceNameByZwaveNodeId (nodeId) {
+  var result = null
+  Object.keys(devices).forEach(deviceId => {
+    if (devices[deviceId].zwNodeId === nodeId) result = devices[deviceId].name
+  })
+  return result
+}
+
 function getAppNameById (searchId) {
   return apps[searchId] ? apps[searchId].name : searchId
 }
 
-function handleSocketConnect () { addLogEntry(this.namespace, 'Connected', 'Logger is listening', 'success') }
-function handleSocketDisconnect () { addLogEntry(this.namespace, 'Disconnected', 'Logger is no longer listening', 'warning') }
-function handleSocketError (error) { addLogEntry(this.namespace, 'Not connected', error, 'danger') }
+function handleSocketConnect () { addLogEntry(this.namespace, 'Connected', 'Logger is listening', {style: 'success'}) }
+function handleSocketDisconnect () { addLogEntry(this.namespace, 'Disconnected', 'Logger is no longer listening', {style: 'warning'}) }
+function handleSocketError (error) { addLogEntry(this.namespace, 'Not connected', error, {style: 'danger'}) }
 function handleSocketEvent (packet) {
   if (!heard[this.namespace]) heard[this.namespace] = {}
   if (!heard[this.namespace][packet.data[0]]) heard[this.namespace][packet.data[0]] = 0
   heard[this.namespace][packet.data[0]] ++
   addLogEntry(this.namespace, packet.data[0], packet.data[1])
 }
-function handleSocketMessage (data) { addLogEntry(this.namespace, 'Message', data, 'danger') }
+function handleSocketMessage (data) { addLogEntry(this.namespace, 'Message', data, {style: 'danger'}) }
 
-function logNamespaceEventDataParser (namespace, event, data) {
+function logNamespaceEventDataParser (namespace, event, data, options) {
   var parsed = {
     namespace: namespace,
     type: namespace.split(':')[0].capitalizeFirstLetter(),
     item: namespace.split(':')[1].capitalizeFirstLetter(),
     event: event.capitalizeFirstLetter(),
     data: (!data ? '' : typeof (data) === 'string' ? data : JSON.stringify(data)),
-    ignore: sockets[namespace].ignore
+    datetime: options.datetime || new Date(),
+    ignore: sockets[namespace].ignore || false
   }
+  if (sockets[namespace].options &&
+    sockets[namespace].options.length > 0 &&
+    sockets[namespace].options.indexOf(event.toLowerCase()) === -1) {
+    parsed.ignore = true
+  }
+  if (parsed.ignore) return parsed
   if (parsed.type === 'App') parsed.item = getAppNameById(namespace.split(':')[1])
   if (parsed.type === 'App' && parsed.data === 'Invalid namespace') parsed.data = 'This app does not support realtime logging'
   if (parsed.type === 'Device') parsed.item = getDeviceNameById(namespace.split(':')[1])
@@ -120,6 +140,23 @@ function logNamespaceEventDataParser (namespace, event, data) {
       if (data.uri.split(':')[1] === 'device') data.device = getDeviceNameById(data.uri.split(':')[2])
       parsed.data = JSON.stringify(data)
       break
+    case 'Zwave:Log':
+      if (typeof (data) !== 'string') {
+        data.forEach(logLine => {
+          addLogEntry(namespace, event, logLine.log, {datetime: new Date(logLine.date)})
+        })
+        parsed.ignore = true
+      } else {
+        // find device
+        var match = data.match(/Node\[(.*?)\]/)
+        var deviceName = (match) ? getDeviceNameByZwaveNodeId(match[1]) : null
+        if (deviceName) {
+          parsed.data = match[0] + ` (${deviceName})` + data.replace(match[0], '')
+        } else {
+          parsed.data = data
+        }
+      }
+      break
   }
   return parsed
 }
@@ -154,13 +191,14 @@ function popoutLogging () {
 
 function socketConnect (namespace, ignore) {
   splitOptionsFromNamespace(namespace, (namespace, option) => {
+    if (namespace === 'app:gov.nsa.logger') { sockets[namespace] = {ignore: !!ignore}; return }
     if (sockets[namespace]) {
-      if (option && sockets[namespace].options.indexOf(option) === -1) sockets[namespace].push(option)
+      if (option && sockets[namespace].options.indexOf(option) === -1) sockets[namespace].options.push(option.toLowerCase())
       if (sockets[namespace].disconnected) sockets[namespace].connect()
     } else {
       var socket = window.parent.Homey.realtime(namespace)
       socket.namespace = namespace
-      socket.options = option ? [option] : []
+      socket.options = option ? [option.toLowerCase()] : []
       socket.on('connect', handleSocketConnect)
       socket.on('disconnect', handleSocketDisconnect)
       socket.on('error', handleSocketError)
@@ -174,10 +212,11 @@ function socketConnect (namespace, ignore) {
 
 function socketDisconnect (namespace) {
   splitOptionsFromNamespace(namespace, (namespace, option) => {
+    if (namespace === 'app:gov.nsa.logger') { sockets[namespace] = {ignore: true}; return }
     if (sockets[namespace]) {
       if (option && sockets[namespace].options.indexOf(option) !== -1) {
         sockets[namespace].options.splice(sockets[namespace].options.indexOf(option), 1)
-        if (sockets[namespace].options.length === 0) return
+        if (sockets[namespace].options.length > 0) return
       }
       if (allwaysOnNamespaces.indexOf(namespace) === -1 && sockets[namespace].connected) {
         sockets[namespace].disconnect()

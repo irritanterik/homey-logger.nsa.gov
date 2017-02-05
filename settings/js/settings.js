@@ -15,8 +15,6 @@ function showPanel (panel) {
 function onHomeyReady () {
   initLogging()
   initConfiguration()
-  // initPerformance()
   showPanel(1)
   Homey.ready()
-  // Homey.alert(navigator.userAgent)
 }
