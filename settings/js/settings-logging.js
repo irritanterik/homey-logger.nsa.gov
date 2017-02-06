@@ -21,7 +21,8 @@ function addLogEntry (namespace, event, data, options) {
   $('#logs').find('tr:gt(1000)').remove()
 
   var node
-  if ((node = tree.treeview(true).getUnselected().filter(node => node.namespace === namespace)[0])) {
+  if (node = tree.treeview(true).getUnselected().filter(node =>
+    (node.namespace === namespace || node.namespace === [namespace, event].join(':')))[0]) {
     $('[data-nodeid=' + node.nodeId + ']').css('background-color', '#f0ad4e')
     if (node.parentId) $('[data-nodeid=' + node.parentId + ']').css('background-color', '#f0ad4e')
     setTimeout(function () {
@@ -34,10 +35,6 @@ function addLogEntry (namespace, event, data, options) {
 function initLogging () {
   playLogging()
   allwaysOnNamespaces.forEach(namespace => socketConnect(namespace, true))
-  // also handle normal socket for cloud support
-  Homey.on('debug', function (data) { addLogEntry('app:gov.nsa.logger', 'debug', data) })
-  Homey.on('error', function (data) { addLogEntry('app:gov.nsa.logger', 'error', data) })
-  Homey.on('performance', function (data) { addLogEntry('app:gov.nsa.logger', 'performance', data) })
 }
 
 function checkNamespaceAdded (namespace) {
@@ -99,7 +96,6 @@ function logNamespaceEventDataParser (namespace, event, data, options) {
     sockets[namespace].options.indexOf(event.toLowerCase()) === -1) {
     parsed.ignore = true
   }
-  if (parsed.ignore) return parsed
   if (parsed.type === 'App') parsed.item = getAppNameById(namespace.split(':')[1])
   if (parsed.type === 'App' && parsed.data === 'Invalid namespace') parsed.data = 'This app does not support realtime logging'
   if (parsed.type === 'Device') parsed.item = getDeviceNameById(namespace.split(':')[1])
@@ -191,7 +187,6 @@ function popoutLogging () {
 
 function socketConnect (namespace, ignore) {
   splitOptionsFromNamespace(namespace, (namespace, option) => {
-    if (namespace === 'app:gov.nsa.logger') { sockets[namespace] = {ignore: !!ignore}; return }
     if (sockets[namespace]) {
       if (option && sockets[namespace].options.indexOf(option) === -1) sockets[namespace].options.push(option.toLowerCase())
       if (sockets[namespace].disconnected) sockets[namespace].connect()
@@ -212,7 +207,6 @@ function socketConnect (namespace, ignore) {
 
 function socketDisconnect (namespace) {
   splitOptionsFromNamespace(namespace, (namespace, option) => {
-    if (namespace === 'app:gov.nsa.logger') { sockets[namespace] = {ignore: true}; return }
     if (sockets[namespace]) {
       if (option && sockets[namespace].options.indexOf(option) !== -1) {
         sockets[namespace].options.splice(sockets[namespace].options.indexOf(option), 1)
